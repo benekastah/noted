@@ -1,10 +1,13 @@
+import configparser
 import contextlib
 import datetime
 import os
 import re
+import shlex
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
 
 import pytz
@@ -27,12 +30,52 @@ class Journal(Model):
         'body': str
     }
 
+    @property
+    def created_at_local(self):
+        if self.created_at is None:
+            return
+        return self.created_at.astimezone(tzlocal.get_localzone())
+
+    @property
+    def finished_at_local(self):
+        if self.finished_at is None:
+            return
+        return self.finished_at.astimezone(tzlocal.get_localzone())
+
+    @property
+    def happened_at_local(self):
+        if self.happened_at is None:
+            return
+        return self.happened_at.astimezone(tzlocal.get_localzone())
+
+
+def get_config():
+    home_dir = os.path.expanduser('~')
+    if not get_config._conf:
+        conf = configparser.ConfigParser()
+        file_path = os.path.join(home_dir, '.config', 'noted', 'noted.cfg')
+        if os.path.exists(file_path):
+            conf.read(file_path)
+        get_config._conf = conf
+    return get_config._conf
+
+get_config._conf = None
+
+
+def shlex_split(cmd):
+    # Good idea from https://github.com/MinchinWeb/jrnl/commit/281b74da743111e211a92131cfdee33a8700a180
+    tuple(shlex.split(cmd, posix="win" not in sys.platform))
+
 
 def get_editor():
+    editor = get_config().get('editor')
+    if editor:
+        return shlex_split(editor)
+
     # Check a number of common environment variables for the user's preferred editor
     editor = os.environ.get('FCEDIT', os.environ.get('VISUAL', os.environ.get('EDITOR')))
     if editor:
-        return (editor,)
+        return shlex_split(editor)
 
     # Some editors listed in loose order from least likely to be installed
     # to most likely to be installed

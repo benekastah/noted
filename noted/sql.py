@@ -13,7 +13,9 @@ def get_conn():
             get_conn._conn = None
 
     if not get_conn._conn:
-        get_conn._conn = sqlite3.connect('journal.db')
+        from noted.core import get_config
+        db_file = get_config().get('noted', 'db', fallback='journal.db')
+        get_conn._conn = sqlite3.connect(db_file)
 
     return get_conn._conn
 
